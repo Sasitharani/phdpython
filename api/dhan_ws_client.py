@@ -3,16 +3,23 @@ import struct
 import json
 import time
 import os
+from threading import Lock
 
 from aggregation.candle_builder import CandleAggregator
 
-# ---------------- CONFIG ---------------- #
+# -------------------------------------------------
+# CONFIG
+# -------------------------------------------------
 
 DHAN_TOKEN = os.getenv("DHAN_ACCESS_TOKEN")
 CLIENT_ID = os.getenv("DHAN_CLIENT_ID")
 
 if not DHAN_TOKEN or not CLIENT_ID:
-    raise RuntimeError("❌ DHAN_ACCESS_TOKEN or DHAN_CLIENT_ID not set")
+    raise RuntimeError("❌ Set DHAN_ACCESS_TOKEN and DHAN_CLIENT_ID")
+
+# Global list to store live candles for web app
+LIVE_CANDLES = []
+DATA_LOCK = Lock()
 
 WS_URL = (
     f"wss://api-feed.dhan.co?"
@@ -24,17 +31,28 @@ SUBSCRIBE_PAYLOAD = {
     "InstrumentCount": 1,
     "InstrumentList": [
         {
-            "ExchangeSegment": "NSE_EQ",   # use MCX_COMM for Gold
-            "SecurityId": "1333"
+            "ExchangeSegment": "NSE_EQ",   # change to MCX_COMM for Gold
+            "SecurityId": "1333"          # change to correct instrument ID
         }
     ]
 }
 
-# ---------------- AGGREGATOR ---------------- #
+# -------------------------------------------------
+# GLOBAL STORAGE (used by browser / Flask)
+# -------------------------------------------------
+
+LIVE_CANDLES = []
+DATA_LOCK = Lock()
+
+# -------------------------------------------------
+# AGGREGATOR
+# -------------------------------------------------
 
 aggregator = CandleAggregator("1min")
 
-# ---------------- PARSING ---------------- #
+# -------------------------------------------------
+# BINARY PARSING
+# -------------------------------------------------
 
 def parse_header(data):
     feed_code = data[0]
@@ -49,8 +67,9 @@ def parse_ticker_packet(data):
     ltt = struct.unpack("<i", data[12:16])[0]
     return ltp, ltt
 
-
-# ---------------- WS CALLBACKS ---------------- #
+# -------------------------------------------------
+# WEBSOCKET CALLBACKS
+# -------------------------------------------------
 
 def on_open(ws):
     print("✅ WebSocket connected")
@@ -69,8 +88,13 @@ def on_message(ws, message):
         ltp, ltt = parse_ticker_packet(message)
         aggregator.add_tick(ltp, ltt)
 
-        for candle in aggregator.get_completed_candles():
-            print("🕯️ CANDLE:", candle)
+        candles = aggregator.get_completed_candles()
+        if candles:
+            with DATA_LOCK:
+                LIVE_CANDLES.extend(candles)
+
+            for c in candles:
+                print("🕯️ CANDLE:", c)
 
 
 def on_error(ws, error):
@@ -79,36 +103,29 @@ def on_error(ws, error):
 
 def on_close(ws, close_status_code, close_msg):
     print("🔌 WebSocket closed")
-    if close_status_code:
-        print(f"Close code: {close_status_code}, message: {close_msg}")
+    print("ℹ️ Restart manually after cooldown if required")
 
-
-# ---------------- RUNNER ---------------- #
+# -------------------------------------------------
+# RUNNER
+# -------------------------------------------------
 
 def start_ws():
-    reconnect_delay = 1  # Start with 1 second
-    max_reconnect_delay = 60  # Max 1 minute
-    while True:
-        try:
-            ws = websocket.WebSocketApp(
-                WS_URL,
-                on_open=on_open,
-                on_message=on_message,
-                on_error=on_error,
-                on_close=on_close
-            )
+    ws = websocket.WebSocketApp(
+        WS_URL,
+        on_open=on_open,
+        on_message=on_message,
+        on_error=on_error,
+        on_close=on_close
+    )
 
-            ws.run_forever(
-                ping_interval=10,
-                ping_timeout=5
-            )
-        except Exception as e:
-            print(f"❌ WebSocket exception: {e}")
+    ws.run_forever(
+        ping_interval=10,
+        ping_timeout=5
+    )
 
-        print(f"🔄 Reconnecting in {reconnect_delay} seconds...")
-        time.sleep(reconnect_delay)
-        reconnect_delay = min(reconnect_delay * 2, max_reconnect_delay)  # Exponential backoff
-
+# -------------------------------------------------
+# ENTRY POINT
+# -------------------------------------------------
 
 if __name__ == "__main__":
     start_ws()

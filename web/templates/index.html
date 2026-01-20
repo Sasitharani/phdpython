@@ -1,0 +1,54 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Live Candles</title>
+    <meta charset="utf-8">
+    <style>
+        body { font-family: Arial; padding: 20px; }
+        table { border-collapse: collapse; width: 100%; }
+        th, td { border: 1px solid #ccc; padding: 8px; text-align: center; }
+        th { background-color: #f2f2f2; }
+    </style>
+</head>
+<body>
+
+<h2>Live Candle Data</h2>
+
+<table>
+    <thead>
+        <tr>
+            <th>Time</th>
+            <th>Open</th>
+            <th>High</th>
+            <th>Low</th>
+            <th>Close</th>
+        </tr>
+    </thead>
+    <tbody id="candle-body"></tbody>
+</table>
+
+<script>
+async function loadCandles() {
+    const res = await fetch("/candles");
+    const data = await res.json();
+    const tbody = document.getElementById("candle-body");
+    tbody.innerHTML = "";
+
+    data.forEach(c => {
+        const row = `<tr>
+            <td>${c.timestamp}</td>
+            <td>${c.open}</td>
+            <td>${c.high}</td>
+            <td>${c.low}</td>
+            <td>${c.close}</td>
+        </tr>`;
+        tbody.innerHTML += row;
+    });
+}
+
+setInterval(loadCandles, 3000);
+loadCandles();
+</script>
+
+</body>
+</html>

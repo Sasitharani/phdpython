@@ -1,0 +1,11 @@
+services:
+  - type: web
+    name: phdpython-live
+    env: python
+    buildCommand: pip install -r requirements.txt
+    startCommand: gunicorn web.app:app
+    envVars:
+      - key: DHAN_ACCESS_TOKEN
+        value: eyJ0eXAiOiJKV1QiLCJhbGciOiJIUzUxMiJ9.eyJpc3MiOiJkaGFuIiwicGFydG5lcklkIjoiIiwiZXhwIjoxNzY4OTE3NDA3LCJpYXQiOjE3Njg4MzEwMDcsInRva2VuQ29uc3VtZXJUeXBlIjoiU0VMRiIsIndlYmhvb2tVcmwiOiIiLCJkaGFuQ2xpZW50SWQiOiIxMTA5NzEzOTI2In0._8JiQm_5VYOlHa1ADEGt1JpMX_1G8WAEufyf31vI_vvPjEHOHD5wO9utTD2G-fBJ3NGIVd-zpirZxtZVNMEBiQ
+      - key: DHAN_CLIENT_ID
+        value: "1109713926"

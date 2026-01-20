@@ -1,0 +1,8 @@
+symbols:
+  - NIFTY
+
+timeframe: "5m"
+
+data_path: "data/raw"
+
+lookback_days: 31
